@@ -1,0 +1,83 @@
+---
+- name: Define php_fpm_daemon.
+  set_fact:
+    php_fpm_daemon: "{{ __php_fpm_daemon }}"
+  when: php_fpm_daemon is not defined
+
+- name: Define php_fpm_pool_conf_path.
+  set_fact:
+    php_fpm_pool_conf_path: "{{ __php_fpm_pool_conf_path }}"
+  when: php_fpm_pool_conf_path is not defined
+
+- name: Define php_fpm_pool_user.
+  set_fact:
+    php_fpm_pool_user: "{{ __php_fpm_pool_user }}"
+  when: php_fpm_pool_user is not defined
+
+- name: Define php_fpm_pool_group.
+  set_fact:
+    php_fpm_pool_group: "{{ __php_fpm_pool_group }}"
+  when: php_fpm_pool_group is not defined
+
+- name: Stat php_fpm_pool_conf_path
+  stat:
+    path: "{{ php_fpm_pool_conf_path | dirname }}"
+  register: php_fpm_pool_conf_path_dir_stat
+
+- name: Ensure the default pool directory exists.
+  file:
+    path: "{{ php_fpm_pool_conf_path | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+  when: php_fpm_pool_conf_path_dir_stat.stat.islnk is not defined
+
+- name: Ensure the configured pools are exist.
+  template:
+    src: www.conf.j2
+    dest: "{{ php_fpm_pool_conf_path | dirname }}/{{ item.fpm_listen_port }}_{{ item.servername }}.conf"
+    owner: root
+    group: root
+    mode: 0644
+    force: yes
+  with_items: "{{ apache_vhosts }}"
+
+
+- name: Ensure the default pool is deleted.
+  file:
+    path: "{{ php_fpm_pool_conf_path | dirname }}/www.conf"
+    state: absent
+
+- name: create php-fpm group
+  group: name="{{ item.fpm_group }}" state=present system=no
+  with_items: "{{ apache_vhosts }}"
+
+- name: create php-fpm user
+  user: name="{{ item.fpm_user }}" state=present append=no comment="php-fpm server user" createhome=no group="{{ item.fpm_group }}" system=no
+  with_items: "{{ apache_vhosts }}"
+
+- name: Ensure the pool session directory exists.
+  file:
+    path: '{{ php_session_save_path }}/{{ item.fpm_user }}/'
+    state: directory
+    owner: '{{ item.fpm_group }}'
+    group: '{{ item.fpm_user }}'
+    mode: 0750
+  with_items: "{{ apache_vhosts }}"
+
+- name: Ensure the pool upload directory exists.
+  file:
+    path: '{{ php_upload_tmp_path }}/{{ item.fpm_user }}/'
+    state: directory
+    owner: '{{ item.fpm_group }}'
+    group: '{{ item.fpm_user }}'
+    mode: 0750
+  with_items: "{{ apache_vhosts }}"
+
+- name: Ensure php-fpm is started and enabled at boot (if configured).
+  service:
+    name: "{{ php_fpm_daemon }}"
+    state: started
+    enabled: yes
+  when: php_enable_php_fpm

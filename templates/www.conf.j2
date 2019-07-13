@@ -1,0 +1,55 @@
+[{{ item.servername }}]
+listen = {{ item.fpm_listen_ip }}:{{ item.fpm_listen_port }}
+listen.allowed_clients = {{ item.fpm_listen_allowed_clients }}
+listen.backlog = -1
+
+chdir = "{{ item.documentroot }}"
+
+;listen.owner = nobody
+;listen.group = nobody
+;listen.mode = 0666
+
+user = "{{ item.fpm_user }}"
+group = "{{ item.fpm_group }}"
+
+
+pm = dynamic
+pm.max_children = {{ item.pm_max_children }}
+pm.start_servers = {{ item.pm_start_servers }}
+pm.min_spare_servers = {{ item.pm_min_spare_servers }}
+pm.max_spare_servers = {{ item.pm_max_spare_servers }}
+pm.max_requests = {{ item.pm_max_requests }}
+
+;pm.status_path = /status
+;ping.path = /ping
+;ping.response = pong
+
+request_terminate_timeout = 0
+;request_slowlog_timeout = 0
+slowlog = "/var/log/php-fpm/{{ item.servername }}_slow.log"
+
+;rlimit_files = 1024
+;rlimit_core = 0
+;chroot =.
+;catch_workers_output = yes
+security.limit_extensions = .php
+
+env[HOSTNAME] = $HOSTNAME
+env[PATH] = /usr/local/bin:/usr/bin:/bin
+env[TMP] = /tmp
+env[TMPDIR] = /tmp
+env[TEMP] = /tmp
+
+; Default Value: nothing is defined by default except the values in php.ini and
+;                specified at startup with the -d argument
+;php_admin_value[sendmail_path] = /usr/sbin/sendmail -t -i -f www@my.domain.com
+php_flag[display_errors] = off
+php_admin_value[error_log] = "/var/log/php-fpm/{{ item.servername }}_error.log"
+php_admin_flag[log_errors] = on
+;php_admin_value[memory_limit] = 128M
+php_admin_value[open_basedir] = '{{ item.serverroot }}:/tmp:{{ item.additional_open_basedir|default('') }}'
+
+; Set session path to a directory owned by process user
+php_value[session.save_handler] = files
+php_value[session.save_path] = '{{ php_session_save_path }}/{{ item.fpm_user }}/'
+php_value[upload_tmp_dir] = '{{ php_upload_tmp_path }}/{{ item.fpm_user }}/'
